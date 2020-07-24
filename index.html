@@ -35,9 +35,24 @@
 <body class="sans-serif">
   <div class="" id="root">
   </div>
+  <script id="workout" type="application/json">
+    {
+      "rest": 0,
+      "reps": 1,
+      "setTime": 50,
+      "exercises": []
+    }
+  </script>
   <!-- JavaScript includes -->
   <script src="https://cdn.jsdelivr.net/npm/ramda@0.27.0/dist/ramda.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/cash-dom@8.0.0/dist/cash.min.js"></script>
+  <script>
+    window.jQuery = window.cash;
+    $.fn.resize = function(cb) {
+      $(this).on('resize', cb)
+    }
+  </script>
+  <script src="https://cdn.jsdelivr.net/gh/simplefocus/FlowType.JS@1.1.0/flowtype.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/baconjs@3.0.13/dist/Bacon.min.js"></script>
   <script src="app.js"></script>
 </body>
