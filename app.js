@@ -4,8 +4,8 @@ $(function () {
   $('body').flowtype()
   var WORKOUT = $('#workout').length === 0 ? {
     rest: 0,
-    reps: 1,
-    setTime: 50,
+    reps: 0,
+    setTime: 0,
     exercises: [],
   } : JSON.parse($('#workout').text())
   var BUTTON_STOP_TEXT = 'Click to Stop Workout'
@@ -37,12 +37,16 @@ $(function () {
     var $target = $(ev.target);
     $target.text(R.test(/stop/i, $target.text()) ? BUTTON_START_TEXT : BUTTON_STOP_TEXT)
   })
+  var totalWorkOutLength = (WORKOUT.exercises.length * WORKOUT.setTime + (WORKOUT.exercises.length - 1) * WORKOUT.rest) * WORKOUT.reps
   var tickProperty = Bacon.update(
     false,
     [startButtonStream, R.ifElse(R.not, R.always(0), R.always(false))],
     [timer, R.ifElse(R.is(Number), R.add(1), R.identity)]
   )
   tickProperty.filter(R.is(Number)).onValue(function (tick) {
+    if (tick >= totalWorkOutLength) {
+      $('#startButton').trigger('click')
+    }
     $('#timer').text(tick)
   })
 })
