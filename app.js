@@ -84,7 +84,9 @@ $(function () {
   Bacon.update(null,
     [startButtonStream, function (cancelStream) {
       if (typeof cancelStream === 'function') {
+        // End the workout
         $(document).trigger('tick', TOTAL_WORKOUT_LENGTH)
+        // Turn off the stream listener:
         cancelStream()
         return null
       }
