@@ -1,15 +1,19 @@
 /* globals R, $, Bacon */
-Bacon.$.init($)
 $(function () {
+  // Initialize $ addons:
+  Bacon.$.init($)
   $('body').flowtype()
+  // Generate workout object:
   var WORKOUT = $('#workout').length === 0 ? {
     rest: 0,
     reps: 0,
     setTime: 0,
     exercises: [],
   } : JSON.parse($('#workout').text())
+  // Display Constants:
   var BUTTON_STOP_TEXT = 'Click to Stop Workout'
   var BUTTON_START_TEXT = 'Click to Start Workout'
+  // Generate HTML objects:
   var startButton = $('<button />')
     .text(BUTTON_START_TEXT)
     .attr('id', 'startButton')
@@ -17,7 +21,7 @@ $(function () {
     .css('top', 0)
     .css('left', 0)
     .appendTo($('#root'))
-  $('<div />')
+  var container = $('<div />')
     .attr('id', 'container')
     .addClass('absolute--fill tc mt2')
     .appendTo($('#root'))
@@ -25,13 +29,15 @@ $(function () {
     .attr('id', 'exercise')
     .addClass('b mv0')
     .css('font-size', '4em')
-    .appendTo($('#container'))
+    .appendTo(container)
   var timerDisplay = $('<h1 />')
     .attr('id', 'timer')
     .addClass('b mv0')
     .css('font-size', '7em')
-    .appendTo($('#container'))
-  var totalWorkOutLength = WORKOUT.exercises.length * WORKOUT.setTime * WORKOUT.reps + (WORKOUT.reps - 1) * WORKOUT.rest
+    .appendTo(container)
+
+  // Workout constants:
+  var TOTAL_WORKOUT_LENGTH = WORKOUT.exercises.length * WORKOUT.setTime * WORKOUT.reps + (WORKOUT.reps - 1) * WORKOUT.rest
   // Status constants:
   var EXERCISE = 'EXERCISE'
   var REST = 'REST'
@@ -39,7 +45,7 @@ $(function () {
   // Calculate what rep, exercise, second in activity, and activity type based
   // on the current tick:
   var whereAreWe = function (tick) {
-    if (tick >= totalWorkOutLength) {
+    if (tick >= TOTAL_WORKOUT_LENGTH) {
       return {
         type: DONE,
       }
@@ -78,11 +84,11 @@ $(function () {
   Bacon.update(null,
     [startButtonStream, function (cancelStream) {
       if (typeof cancelStream === 'function') {
-        $(document).trigger('tick', totalWorkOutLength)
+        $(document).trigger('tick', TOTAL_WORKOUT_LENGTH)
         cancelStream()
         return null
       }
-      var workoutStream = Bacon.sequentially(1000, R.range(0, totalWorkOutLength))
+      var workoutStream = Bacon.sequentially(1000, R.range(0, TOTAL_WORKOUT_LENGTH))
       workoutStream.onEnd(function () {
         startButton.trigger('click')
       })
