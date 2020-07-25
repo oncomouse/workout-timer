@@ -81,24 +81,22 @@ $(function () {
     startButton.text(R.test(/stop/i, startButton.text()) ? BUTTON_START_TEXT : BUTTON_STOP_TEXT)
   })
   // Start or stop the workout stream based on button click:
-  Bacon.update(null,
-    [startButtonStream, function (cancelStream) {
-      if (typeof cancelStream === 'function') {
-        // End the workout
-        $(document).trigger('tick', TOTAL_WORKOUT_LENGTH)
-        // Turn off the stream listener:
-        cancelStream()
-        return null
-      }
-      var workoutStream = Bacon.sequentially(1000, R.range(0, TOTAL_WORKOUT_LENGTH))
-      workoutStream.onEnd(function () {
-        startButton.trigger('click')
-      })
-      return workoutStream.onValue(function (tick) {
-        $(document).trigger('tick', tick)
-      })
-    }]
-  ).onValue(R.identity)
+  startButtonStream.scan(null, function (cancelStream) {
+    if (typeof cancelStream === 'function') {
+      // End the workout
+      $(document).trigger('tick', TOTAL_WORKOUT_LENGTH)
+      // Turn off the stream listener:
+      cancelStream()
+      return null
+    }
+    var workoutStream = Bacon.sequentially(1000, R.range(0, TOTAL_WORKOUT_LENGTH))
+    workoutStream.onEnd(function () {
+      startButton.trigger('click')
+    })
+    return workoutStream.onValue(function (tick) {
+      $(document).trigger('tick', tick)
+    })
+  }).onValue(R.identity)
   // Listen for tick events, which will be emitted by the stream generated above:
   var tickStream = $(document).asEventStream('tick', R.pipe(R.nthArg(1), whereAreWe))
   // Update the clock any time type is not DONE
