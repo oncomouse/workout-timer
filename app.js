@@ -17,72 +17,106 @@ $(function () {
     .css('top', 0)
     .css('left', 0)
     .appendTo($('#root'))
-  var container = $('<div />')
+  $('<div />')
     .attr('id', 'container')
-    .addClass('absolute--fill tc')
+    .addClass('absolute--fill tc mt2')
     .appendTo($('#root'))
   var exerciseDisplay = $('<h2 />')
     .attr('id', 'exercise')
-    .addClass('b')
-    .css('font-size', '5em')
+    .addClass('b mv0')
+    .css('font-size', '4em')
     .appendTo($('#container'))
   var timerDisplay = $('<h1 />')
     .attr('id', 'timer')
-    .addClass('b')
+    .addClass('b mv0')
     .css('font-size', '7em')
     .appendTo($('#container'))
+  var totalWorkOutLength = WORKOUT.exercises.length * WORKOUT.setTime * WORKOUT.reps + (WORKOUT.reps - 1) * WORKOUT.rest
+  // Status constants:
+  var EXERCISE = 'EXERCISE'
+  var REST = 'REST'
+  var DONE = 'DONE'
+  // Calculate what rep, exercise, second in activity, and activity type based
+  // on the current tick:
+  var whereAreWe = function (tick) {
+    if (tick >= totalWorkOutLength) {
+      return {
+        type: DONE,
+      }
+    }
+    // How long is unit (set + rest)?:
+    var totalActionLength = WORKOUT.setTime + WORKOUT.rest
+    // How many total action have been performed?:
+    var totalExercises = Math.floor(tick / totalActionLength)
+    // What rep are we on?:
+    var repCount = Math.floor(totalExercises / WORKOUT.exercises.length)
+    // Which exercise are we on in that rep?:
+    var exerciseCount = totalExercises - repCount * WORKOUT.exercises.length
+    // How many ticks into the action are we?:
+    var count = (tick - totalActionLength * totalExercises)
+    // Does that mean we are resting or exercising?:
+    var status = count >= WORKOUT.setTime ? REST : EXERCISE
+    // How many ticks into resting or exercising are we?
+    var actionTick = (status === REST ? count - WORKOUT.setTime : count) + 1
+    // Generate our action object:
+    return {
+      type: status,
+      payload: {
+        exercise: exerciseCount,
+        rep: repCount,
+        tick: actionTick
+      },
+    }
+  }
+  // Track when the start button is clicked:
   var startButtonStream = startButton.asEventStream('click')
+  // Update button contents on click:
   startButtonStream.onValue(function () {
     startButton.text(R.test(/stop/i, startButton.text()) ? BUTTON_START_TEXT : BUTTON_STOP_TEXT)
   })
-  var totalWorkOutLength = (WORKOUT.exercises.length * WORKOUT.setTime + (WORKOUT.exercises.length - 1) * WORKOUT.rest) * WORKOUT.reps
-  var EXERCISE = 'EXERCISE'
-  var REST = 'REST'
-  var workoutStopState = function (type, tick) {
-    if (type === REST) {
-      return tick + 1 > WORKOUT.rest
-    }
-    return tick + 1 > WORKOUT.setTime
-  }
-  var otherWorkoutState = function (type) {
-    return type === REST ? EXERCISE : REST
-  }
-  var workoutSaga = R.reduce(function (workout) {
-    var lastState = R.last(workout)
-    if (lastState) {
-      if (workoutStopState(lastState.type, lastState.payload.tick)) {
-        return R.append({type: otherWorkoutState(lastState.type), payload: {tick: 1}}, workout)
-      }
-      return R.append({type: lastState.type, payload: {tick: lastState.payload.tick + 1}}, workout)
-    }
-    return [{type: EXERCISE, payload: {tick: 1}}]
-  }, [], R.range(0, totalWorkOutLength))
-  var runningStream = Bacon.update(null,
+  // Start or stop the workout stream based on button click:
+  Bacon.update(null,
     [startButtonStream, function (cancelStream) {
       if (typeof cancelStream === 'function') {
+        $(document).trigger('tick', totalWorkOutLength)
         cancelStream()
         return null
       }
-      var workoutStream = Bacon.sequentially(1000, workoutSaga)
-      return workoutStream.onValue(function (action) {
-        $(document).trigger('tick', action)
+      var workoutStream = Bacon.sequentially(1000, R.range(0, totalWorkOutLength))
+      workoutStream.onEnd(function () {
+        startButton.trigger('click')
+      })
+      return workoutStream.onValue(function (tick) {
+        $(document).trigger('tick', tick)
       })
     }]
   ).onValue(R.identity)
-  var tickStream = $(document).asEventStream('tick', R.nthArg(1))
-  tickStream.onValue(function (action) {
-    timerDisplay.text(action.payload.tick)
-  })
-  var exerciseProperty = Bacon.update(
-    0,
-    [tickStream, function(exerciseCount, action) {
-      if (action.type === REST) {
-        return exerciseCount + 1
-      }
-      return exerciseCount
-    }])
-  exerciseProperty.merge(runningStream).onValue(function() {
-    console.log(arguments)
-    // exerciseDisplay.text(WORKOUT.exercises[exerciseCount])
+  // Listen for tick events, which will be emitted by the stream generated above:
+  var tickStream = $(document).asEventStream('tick', R.pipe(R.nthArg(1), whereAreWe))
+  // Update the clock any time type is not DONE
+  tickStream
+    .filter(R.pipe(R.propEq('type', DONE), R.not))
+    .map(R.path(['payload', 'tick']))
+    .onValue(function (tick) {
+      timerDisplay.text(tick)
+    })
+  // Update status for when type is REST
+  tickStream
+    .filter(R.propEq('type', REST))
+    .onValue(function () {
+      exerciseDisplay.text('Resting')
+    })
+  // Update status with exercise name when type is EXERCISE
+  tickStream
+    .filter(R.propEq('type', EXERCISE))
+    .map(R.path(['payload', 'exercise']))
+    .map(R.nth(R.__, WORKOUT.exercises))
+    .onValue(function (exercise) {
+      exerciseDisplay.text(exercise)
+    })
+  // Clear status and timer when type is DONE
+  tickStream.filter(R.propEq('type', DONE)).onValue(function () {
+    exerciseDisplay.text('')
+    timerDisplay.text('')
   })
 })
